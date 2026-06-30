@@ -1,0 +1,174 @@
+datasource db {
+  provider = "sqlite"
+  url      = "file:./dev.db"
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model User {
+  id        String   @id @default(uuid())
+  email     String   @unique
+  username  String
+  password  String // Hashed with bcryptjs
+  role      Role     @default(CUSTOMER)
+  createdAt DateTime @default(now())
+
+  bookings Booking[]
+  reviews  Review[]
+  operator OperatorProfile?
+  wishlist Wishlist[]
+}
+
+enum Role {
+  CUSTOMER
+  OPERATOR
+  ADMIN
+}
+
+model OperatorProfile {
+  id          String   @id @default(uuid())
+  userId      String   @unique
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  companyName String
+  isApproved  Boolean  @default(false)
+  createdAt   DateTime @default(now())
+
+  adventures Adventure[]
+}
+
+model Adventure {
+  id           String @id @default(uuid())
+  title        String
+  category     String // Category enum equivalent as String for SQLite search flexibility
+  region       String // Region enum equivalent as String
+  difficulty   String // Difficulty enum equivalent as String
+  durationDays Int
+  basePrice    Float
+  description  String
+  imageUrl     String
+  latitude     Float
+  longitude    Float
+
+  // Trip Essentials
+  fitnessLevel      Int    @default(3) // 1 to 5 stars
+  bestSeason        String // e.g., "June - February"
+  meetingPoint      String // GPS name / coordinates
+  emergencyHospital String
+  emergencyPolice   String
+
+  isApproved Boolean  @default(false)
+  createdAt  DateTime @default(now())
+
+  operatorId String
+  operator   OperatorProfile @relation(fields: [operatorId], references: [id], onDelete: Cascade)
+
+  itinerary  ItineraryStep[]
+  inclusions Inclusion[]
+  exclusions Exclusion[]
+  essentials EssentialItem[]
+  departures Departure[]
+  reviews    Review[]
+  wishlist   Wishlist[]
+  bookings   Booking[]
+
+  // Indexes for high performance filtering
+  @@index([category])
+  @@index([region])
+  @@index([difficulty])
+}
+
+model ItineraryStep {
+  id          String    @id @default(uuid())
+  adventureId String
+  adventure   Adventure @relation(fields: [adventureId], references: [id], onDelete: Cascade)
+  day         Int
+  title       String
+  description String
+}
+
+model Inclusion {
+  id          String    @id @default(uuid())
+  adventureId String
+  adventure   Adventure @relation(fields: [adventureId], references: [id], onDelete: Cascade)
+  text        String
+}
+
+model Exclusion {
+  id          String    @id @default(uuid())
+  adventureId String
+  adventure   Adventure @relation(fields: [adventureId], references: [id], onDelete: Cascade)
+  text        String
+}
+
+model EssentialItem {
+  id          String    @id @default(uuid())
+  adventureId String
+  adventure   Adventure @relation(fields: [adventureId], references: [id], onDelete: Cascade)
+  text        String // e.g. "Water bottle (2L)", "Trekking Shoes"
+}
+
+model Departure {
+  id          String    @id @default(uuid())
+  adventureId String
+  adventure   Adventure @relation(fields: [adventureId], references: [id], onDelete: Cascade)
+  date        DateTime
+  maxCapacity Int
+  bookedSlots Int       @default(0)
+
+  bookings Booking[]
+}
+
+model Booking {
+  id            String    @id @default(uuid())
+  bookingNumber String    @unique
+  userId        String
+  user          User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  adventureId   String
+  adventure     Adventure @relation(fields: [adventureId], references: [id], onDelete: Cascade)
+  departureId   String
+  departure     Departure @relation(fields: [departureId], references: [id], onDelete: Cascade)
+  totalPrice    Float
+  status        String    @default("PENDING") // PENDING, CONFIRMED, COMPLETED, CANCELLED
+  paymentId     String? // Stripe/Razorpay reference
+  createdAt     DateTime  @default(now())
+
+  travelers TravelerDetail[]
+
+  @@index([status])
+  @@index([createdAt])
+}
+
+model TravelerDetail {
+  id               String  @id @default(uuid())
+  bookingId        String
+  booking          Booking @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  name             String
+  age              Int
+  emergencyContact String
+}
+
+model Review {
+  id        String   @id @default(uuid())
+  rating    Int
+  comment   String
+  createdAt DateTime @default(now())
+
+  userId      String
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  adventureId String
+  adventure   Adventure @relation(fields: [adventureId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, adventureId])
+}
+
+model Wishlist {
+  id          String    @id @default(uuid())
+  userId      String
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  adventureId String
+  adventure   Adventure @relation(fields: [adventureId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, adventureId])
+}
